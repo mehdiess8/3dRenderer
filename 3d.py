@@ -66,6 +66,49 @@ class Viewer(object):
     def main_loop(self):
         glutMainLoop()
 
+    def render(self):
+        """the render pass fot the scene"""
+        self.init_view()
+
+        glEnable(GL_LIGHTING)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        # Load the modelview matrix from the current state of the trackball
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        loc = self.interaction.translation
+        glTranslated(loc[0], loc[1], loc[2])
+        glMultiMatrixf(self.interaction.trackball.matrix)
+        
+        #store the inverse of the current modelview
+        current_modelview = np.array(glGetFloatv(GL_MODELVIEW_MATRIX))
+        self.modelView = np.transpose(current_modelview)
+        self.inverseModelView = inv(np.transpose(current_modelview))
+
+        #render the scene. first render the functino for each object
+        self.scene.render()
+
+        #draw the grid
+        glDisable(GL_LIGHTING)
+        glCallList(G_OBJ_PLANE)
+        glPopMatrix()
+
+        #flush the buffers so scene can be drawn
+        glFlush()
+
+    def init_view(self):
+        """initialize the view matrix and projection matrix"""
+        xSize, ySize = glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
+        aspect_ratio = float(xSize) / float(ySize)
+
+        #load the projection matrix
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glViewport(0, 0, xSize, ySize)
+        gluPerspective(70.0, aspect_ratio, 0.1, 1000.0)
+        glTranslated(0, 0, -15)
+
 if __name__ == '__main__':
     viewer = Viewer()
     viewer.main_loop()
