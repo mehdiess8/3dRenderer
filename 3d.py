@@ -109,6 +109,27 @@ class Viewer(object):
         gluPerspective(70.0, aspect_ratio, 0.1, 1000.0)
         glTranslated(0, 0, -15)
 
+class Scene(object):
+
+    # the default depth from the camera to place an object at
+    PLACE_DEPTH = 15.0
+
+    def __init__(self):
+        # The scene keeps a list of nodes that are displayed
+        self.node_list = list()
+        # Keep track of the currently selected node.
+        # Actions may depend on whether or not something is selected
+        self.selected_node = None
+
+    def add_node(self, node):
+        """ Add a new node to the scene """
+        self.node_list.append(node)
+
+    def render(self):
+        """ Render the scene. """
+        for node in self.node_list:
+            node.render()
+
 if __name__ == '__main__':
     viewer = Viewer()
     viewer.main_loop()
