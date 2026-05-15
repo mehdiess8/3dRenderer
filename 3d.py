@@ -109,6 +109,34 @@ class Viewer(object):
         gluPerspective(70.0, aspect_ratio, 0.1, 1000.0)
         glTranslated(0, 0, -15)
 
+    def get_ray(self, x, y):
+        """ 
+        Generate a ray beginning at the near plane, in the direction that
+        the x, y coordinates are facing 
+
+        Consumes: x, y coordinates of mouse on screen 
+        Return: start, direction of the ray 
+        """
+        self.init_view()
+
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+        # get two points on the line.
+        start = numpy.array(gluUnProject(x, y, 0.001))
+        end = numpy.array(gluUnProject(x, y, 0.999))
+
+        # convert those points into a ray
+        direction = end - start
+        direction = direction / norm(direction)
+
+        return (start, direction)
+
+    def pick(self, x, y):
+        """ Execute pick of an object. Selects an object in the scene. """
+        start, direction = self.get_ray(x, y)
+        self.scene.pick(start, direction, self.modelView)
+
 class Scene(object):
 
     # the default depth from the camera to place an object at
@@ -129,6 +157,32 @@ class Scene(object):
         """ Render the scene. """
         for node in self.node_list:
             node.render()
+
+    def pick(self, start, direction, mat):
+        """ 
+        Execute selection.
+            
+        start, direction describe a Ray. 
+        mat is the inverse of the current modelview matrix for the scene.
+        """
+        if self.selected_node is not None:
+            self.selected_node.select(False)
+            self.selected_node = None
+
+        # Keep track of the closest hit.
+        mindist = sys.maxint
+        closest_node = None
+        for node in self.node_list:
+            hit, distance = node.pick(start, direction, mat)
+            if hit and distance < mindist:
+                mindist, closest_node = distance, node
+
+        # If we hit something, keep track of it.
+        if closest_node is not None:
+            closest_node.select()
+            closest_node.depth = mindist
+            closest_node.selected_loc = start + direction * mindist
+            self.selected_node = closest_node
 
 class Node(object):
     """ Base class for scene elements """
@@ -158,6 +212,30 @@ class Node(object):
     def render_self(self):
         raise NotImplementedError(
             "The Abstract Node Class doesn't define 'render_self'")
+
+    def pick(self, start, direction, mat):
+        """ 
+        Return whether or not the ray hits the object
+
+        Consume:  
+        start, direction form the ray to check
+        mat is the modelview matrix to transform the ray by 
+        """
+
+        # transform the modelview matrix by the current translation
+        newmat = numpy.dot(
+            numpy.dot(mat, self.translation_matrix), 
+            numpy.linalg.inv(self.scaling_matrix)
+        )
+        results = self.aabb.ray_hit(start, direction, newmat)
+        return results
+
+    def select(self, select=None):
+       """ Toggles or sets selected state """
+       if select is not None:
+           self.selected = select
+       else:
+           self.selected = not self.selected
 
 class Primitive(Node):
     def __init__(self):
@@ -300,7 +378,7 @@ class Interaction(object):
         for func in self.callbacks[name]:
             func(*args, **kwargs)
 
-            
+
 
 
 if __name__ == '__main__':
